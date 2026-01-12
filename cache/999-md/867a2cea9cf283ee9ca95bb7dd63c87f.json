@@ -1,1 +1,14 @@
-{}
+{
+  "author": "Юридическое лицо",
+  "education": "Среднее профессиональное",
+  "experience": "До 2-х лет",
+  "schedule": "Полный день",
+  "contactPerson": "Serghei078505550",
+  "seasonal": false,
+  "languages": [
+    "Румынский",
+    "Русский"
+  ],
+  "region": "Кишинёв мун., Бачой",
+  "location": "Кишинёв мун., Бачой"
+}

@@ -1,1 +1,14 @@
-{}
+{
+  "author": "Юридическое лицо",
+  "education": "Среднее профессиональное",
+  "experience": "До 2-х лет",
+  "schedule": "Полный день",
+  "contactPerson": "Eurogarage",
+  "seasonal": false,
+  "languages": [
+    "Румынский",
+    "Русский"
+  ],
+  "region": "Кишинёв мун., Кишинёв, Чокана",
+  "location": "Кишинёв мун., Кишинёв, Чокана"
+}

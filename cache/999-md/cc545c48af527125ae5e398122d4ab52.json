@@ -1,1 +1,14 @@
-{}
+{
+  "author": "Физическое лицо",
+  "education": "Не требуется или не указано",
+  "experience": "От 3 до 5 лет",
+  "schedule": "Полный день",
+  "contactPerson": "Nikolae",
+  "seasonal": false,
+  "languages": [
+    "Румынский",
+    "Русский"
+  ],
+  "region": "Кишинёв мун.",
+  "location": "Кишинёв мун."
+}

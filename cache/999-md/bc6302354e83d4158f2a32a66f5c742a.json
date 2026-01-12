@@ -1,0 +1,15 @@
+{
+  "author": "Юридическое лицо",
+  "education": "Среднее профессиональное",
+  "experience": "От 1 года до 3 лет",
+  "schedule": "Полный день",
+  "employmentType": "Полная занятость",
+  "contactPerson": "Vladimir",
+  "seasonal": false,
+  "languages": [
+    "Румынский",
+    "Русский"
+  ],
+  "region": "Кишинёв мун., Кишинёв, Центр",
+  "location": "Кишинёв мун., Кишинёв, Центр"
+}

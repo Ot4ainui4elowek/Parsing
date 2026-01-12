@@ -5,9 +5,12 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import { Queue } from 'bullmq';
 import { config } from '../shared/config/index.js';
 import { vacancyRoutes } from './routes/vacancies.js';
 import { subscriptionRoutes } from './routes/subscriptions.js';
+import { dictionaryRoutes } from './routes/dictionaries.js';
+import { cacheRoutes } from './routes/cache.js';
 import { prisma } from '../db/index.js';
 import { vacancyManager } from '../shared/managers/vacancyManager.js';
 
@@ -16,6 +19,29 @@ const fastify = Fastify({
     level: process.env.NODE_ENV === 'development' ? 'info' : 'error',
   },
 });
+
+// Подключаем Queue для фоновых задач
+// (НЕ Worker, а только Queue для добавления задач)
+try {
+  const connection = {
+    host: config.redis.host,
+    port: config.redis.port,
+    password: config.redis.password,
+  };
+
+  const parseQueue = new Queue('parse', { connection });
+  
+  // Проверяем подключение
+  await parseQueue.waitUntilReady();
+  
+  // Регистрируем Queue в VacancyManager
+  vacancyManager.setQueue(parseQueue);
+  
+  console.log('✅ Redis Queue подключена (фоновое обновление доступно)');
+} catch (error) {
+  console.log('⚠️  Redis не доступен - фоновое обновление не будет работать');
+  console.log('  Запустите Redis и Worker для включения фоновых задач');
+}
 
 // CORS
 await fastify.register(cors, {
@@ -48,6 +74,8 @@ fastify.get('/health', async () => {
 // Routes
 await fastify.register(vacancyRoutes, { prefix: '/api' });
 await fastify.register(subscriptionRoutes, { prefix: '/api' });
+await fastify.register(dictionaryRoutes, { prefix: '/api' });
+await fastify.register(cacheRoutes, { prefix: '/api' });
 
 // Graceful shutdown
 const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
@@ -72,6 +100,7 @@ const start = async () => {
     fastify.log.info(`📊 Health check: http://${config.api.host}:${config.api.port}/health`);
     fastify.log.info(`📋 Vacancies API: http://${config.api.host}:${config.api.port}/api/vacancies`);
     fastify.log.info(`🔔 Subscriptions API: http://${config.api.host}:${config.api.port}/api/subscriptions`);
+    fastify.log.info(`📖 Dictionaries API: http://${config.api.host}:${config.api.port}/api/dictionaries`);
     
     // Показываем статистику при старте
     const stats = await vacancyManager.getStats();

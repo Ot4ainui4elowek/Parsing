@@ -1,0 +1,16 @@
+{
+  "author": "Юридическое лицо",
+  "education": "Не требуется или не указано",
+  "experience": "От 1 года до 3 лет",
+  "salary": "от 15000 до 20000 MDL",
+  "schedule": "Сменный график",
+  "employmentType": "Полная занятость",
+  "contactPerson": "Tatiana",
+  "seasonal": false,
+  "languages": [
+    "Румынский",
+    "Русский"
+  ],
+  "region": "Кишинёв мун., Кишинёв, Старая Почта, str. Calea Orheiului, 19a",
+  "location": "Кишинёв мун., Кишинёв, Старая Почта, str. Calea Orheiului, 19a"
+}

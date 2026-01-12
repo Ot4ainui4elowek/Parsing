@@ -13,9 +13,12 @@ interface VacancyQuery {
   salaryMin?: number;
   experience?: string;
   schedule?: string;
-  sources?: string;
+  source?: string;  // ОДИН источник (новое)
+  sources?: string; // Несколько источников
+  useSemanticSearch?: string; // Семантический поиск
+  userId?: string;  // ID пользователя для кэширования (для бота)
   limit?: number;
-  offset?: number;
+  page?: number;    // Номер страницы (начиная с 1)
 }
 
 export async function vacancyRoutes(fastify: FastifyInstance) {
@@ -30,10 +33,25 @@ export async function vacancyRoutes(fastify: FastifyInstance) {
           salaryMin,
           experience,
           schedule,
-          sources,
-          limit = 50,
-          offset = 0,
+          source,  // ОДИН источник
+          sources, // Несколько
+          useSemanticSearch,
+          userId,  // ID пользователя (для телеграм бота)
+          limit = 10,
+          page = 1,
         } = request.query;
+
+        // Определяем источники
+        let sourcesArray: any = undefined;
+        
+        if (source) {
+          // Если указан ОДИН источник
+          sourcesArray = [source.trim()];
+        } else if (sources) {
+          // Если указано НЕСКОЛЬКО
+          sourcesArray = sources.split(',').map((s) => s.trim());
+        }
+        // Если не указано ничего - возьмется по умолчанию все 3
 
         // Формируем фильтры
         const filters = {
@@ -42,21 +60,23 @@ export async function vacancyRoutes(fastify: FastifyInstance) {
           salaryMin: salaryMin ? Number(salaryMin) : undefined,
           experience: experience ? experience.split(',').map((e) => e.trim()) : undefined,
           schedule: schedule ? schedule.split(',').map((s) => s.trim()) : undefined,
-          sources: sources ? sources.split(',').map((s) => s.trim()) as any : undefined,
+          sources: sourcesArray,
+          useSemanticSearch: useSemanticSearch === 'true',
           limit: Number(limit),
-          offset: Number(offset),
+          page: Number(page),
         };
 
-        // Используем VacancyManager для умного поиска
-        const result = await vacancyManager.search(filters);
+        // Используем VacancyManager для умного поиска (с userId для кэширования)
+        const result = await vacancyManager.search(filters, userId);
 
         return reply.send({
           success: true,
           data: result.vacancies,
           meta: {
             total: result.meta.total,
+            totalPages: result.meta.totalPages,
+            currentPage: filters.page,
             limit: filters.limit,
-            offset: filters.offset,
             source: result.meta.source,
             lastUpdate: result.meta.lastUpdate,
             updating: result.meta.updating
@@ -73,6 +93,35 @@ export async function vacancyRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // POST /vacancies/force-parse - Принудительный парсинг
+  fastify.post<{ Body: { sources?: string[]; searchQuery?: string } }>(
+    '/vacancies/force-parse',
+    async (request: FastifyRequest<{ Body: { sources?: string[]; searchQuery?: string } }>, reply: FastifyReply) => {
+      try {
+        const { sources, searchQuery } = request.body || {};
+
+        // Запускаем принудительный парсинг
+        const result = await vacancyManager.forceParse(sources, searchQuery);
+
+        return reply.send({
+          success: true,
+          message: 'Parsing completed',
+          data: {
+            sources: sources || ['rabota.md', '999.md', 'makler.md'],
+            searchQuery: searchQuery || 'работа',
+            vacanciesParsed: result.results.length
+          }
+        });
+      } catch (error: any) {
+        request.log.error(error);
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to parse',
+          message: error.message,
+        });
+      }
+    }
+  );
   // GET /vacancies/:id - Получить конкретную вакансию
   fastify.get<{ Params: { id: string } }>(
     '/vacancies/:id',
@@ -120,32 +169,4 @@ export async function vacancyRoutes(fastify: FastifyInstance) {
       });
     }
   });
-
-  // POST /vacancies/force-parse - Принудительный парсинг
-  fastify.post<{ Body: { sources?: string[] } }>(
-    '/vacancies/force-parse',
-    async (request: FastifyRequest<{ Body: { sources?: string[] } }>, reply: FastifyReply) => {
-      try {
-        const { sources } = request.body || {};
-
-        // Запускаем принудительный парсинг
-        const result = await vacancyManager.forceParse(sources);
-
-        return reply.send({
-          success: true,
-          message: 'Parsing completed',
-          data: {
-            vacanciesParsed: result.results.length
-          }
-        });
-      } catch (error: any) {
-        request.log.error(error);
-        return reply.status(500).send({
-          success: false,
-          error: 'Failed to parse',
-          message: error.message,
-        });
-      }
-    }
-  );
 }

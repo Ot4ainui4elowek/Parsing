@@ -1,1 +1,16 @@
-{}
+{
+  "author": "Юридическое лицо",
+  "education": "Среднее профессиональное",
+  "experience": "От 1 года до 3 лет",
+  "salary": "от 1500 до 2000 €",
+  "schedule": "Полный день",
+  "employmentType": "Полная занятость",
+  "contactPerson": "Stratan Tudor",
+  "seasonal": false,
+  "languages": [
+    "Румынский",
+    "Русский"
+  ],
+  "region": "Кишинёв мун., Кишинёв, Ботаника",
+  "location": "Кишинёв мун., Кишинёв, Ботаника"
+}

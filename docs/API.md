@@ -6,6 +6,7 @@
 - [Запуск API](#запуск-api)
 - [Эндпоинты](#эндпоинты)
 - [Примеры использования](#примеры-использования)
+- [Пагинация](#пагинация)
 - [Ошибки](#ошибки)
 - [Интеграция с ботом](#интеграция-с-ботом)
 
@@ -19,7 +20,10 @@ API сервер на **Fastify** предоставляет REST API для д�
 
 **Возможности:**
 - Поиск вакансий с фильтрами
+- Умная пагинация (по номеру страницы)
+- Кэширование результатов для быстрой навигации
 - Получение конкретной вакансии
+- Семантический поиск через словари профессий
 - Управление подписками (в разработке)
 - Статистика
 
@@ -82,20 +86,23 @@ curl http://localhost:3000/health
 
 **GET** `/api/vacancies`
 
-Поиск вакансий с фильтрами.
+Поиск вакансий с фильтрами и пагинацией.
 
 **Query параметры:**
 
-| Параметр | Тип | Описание | Пример |
-|----------|-----|----------|--------|
-| `keywords` | string | Ключевые слова через запятую | `nodejs,javascript` |
-| `locations` | string | Локации через запятую | `chisinau,balti` |
-| `salaryMin` | number | Минимальная зарплата | `1000` |
-| `experience` | string | Опыт работы | `no_experience,between_1_and_3` |
-| `schedule` | string | График работы | `remote,hybrid` |
-| `sources` | string | Источники | `rabota.md,999.md` |
-| `limit` | number | Количество результатов (по умолчанию: 50) | `20` |
-| `offset` | number | Смещение для пагинации | `0` |
+| Параметр | Тип | Описание | По умолчанию | Пример |
+|----------|-----|----------|--------------|--------|
+| `keywords` | string | Ключевые слова через запятую | - | `nodejs,javascript` |
+| `locations` | string | Локации через запятую | - | `chisinau,balti` |
+| `salaryMin` | number | Минимальная зарплата | - | `1000` |
+| `experience` | string | Опыт работы | - | `no_experience,between_1_and_3` |
+| `schedule` | string | График работы | - | `remote,hybrid` |
+| `source` | string | Один источник | - | `rabota.md` |
+| `sources` | string | Несколько источников через запятую | все 3 | `rabota.md,999.md` |
+| `useSemanticSearch` | boolean | Использовать семантический поиск | false | `true` |
+| `userId` | string | ID пользователя для кэширования | - | `telegram_12345` |
+| `limit` | number | Количество результатов на странице | 10 | `20` |
+| `page` | number | Номер страницы (начиная с 1) | 1 | `2` |
 
 **Возможные значения `experience`:**
 - `no_experience` - Без опыта
@@ -136,9 +143,13 @@ curl http://localhost:3000/health
     }
   ],
   "meta": {
-    "total": 15,
-    "limit": 50,
-    "offset": 0
+    "total": 150,           // Общее количество вакансий
+    "totalPages": 15,       // Общее количество страниц
+    "currentPage": 1,       // Текущая страница
+    "limit": 10,            // Вакансий на странице
+    "source": "cache",      // Источник данных: cache | fresh | cache-paginated
+    "lastUpdate": "2024-01-05T11:00:00.000Z",
+    "updating": false       // Обновляются ли данные в фоне
   }
 }
 ```
@@ -146,20 +157,26 @@ curl http://localhost:3000/health
 **Примеры запросов:**
 
 ```bash
-# Все вакансии
+# Все вакансии (первая страница)
 curl "http://localhost:3000/api/vacancies"
+
+# Вторая страница
+curl "http://localhost:3000/api/vacancies?page=2"
 
 # Поиск Node.js в Кишиневе с зарплатой от 1000$
 curl "http://localhost:3000/api/vacancies?keywords=nodejs&locations=chisinau&salaryMin=1000"
 
-# Удаленная работа для джунов
-curl "http://localhost:3000/api/vacancies?schedule=remote&experience=no_experience,between_1_and_3"
+# Удаленная работа для джунов, показать по 20 на странице
+curl "http://localhost:3000/api/vacancies?schedule=remote&experience=no_experience,between_1_and_3&limit=20"
 
-# С пагинацией
-curl "http://localhost:3000/api/vacancies?limit=10&offset=20"
+# Семантический поиск "программист" с пагинацией
+curl "http://localhost:3000/api/vacancies?keywords=программист&useSemanticSearch=true&page=1&limit=15"
 
 # Только с rabota.md
-curl "http://localhost:3000/api/vacancies?sources=rabota.md"
+curl "http://localhost:3000/api/vacancies?source=rabota.md"
+
+# С userId для кэширования (для бота)
+curl "http://localhost:3000/api/vacancies?keywords=developer&userId=telegram_12345&page=2"
 ```
 
 ---
@@ -206,7 +223,43 @@ curl "http://localhost:3000/api/vacancies/clx1234567890"
 
 ---
 
-### 4. Статистика
+### 4. Принудительный парсинг
+
+**POST** `/api/vacancies/force-parse`
+
+Запустить парсинг вакансий прямо сейчас (не из кэша).
+
+**Body параметры:**
+```json
+{
+  "sources": ["rabota.md", "999.md"],  // Опционально
+  "searchQuery": "программист"          // Опционально
+}
+```
+
+**Ответ:**
+```json
+{
+  "success": true,
+  "message": "Parsing completed",
+  "data": {
+    "sources": ["rabota.md", "999.md"],
+    "searchQuery": "программист",
+    "vacanciesParsed": 145
+  }
+}
+```
+
+**Пример:**
+```bash
+curl -X POST "http://localhost:3000/api/vacancies/force-parse" \
+  -H "Content-Type: application/json" \
+  -d '{"sources": ["rabota.md"], "searchQuery": "developer"}'
+```
+
+---
+
+### 5. Статистика
 
 **GET** `/api/vacancies/stats`
 
@@ -219,15 +272,24 @@ curl "http://localhost:3000/api/vacancies/clx1234567890"
   "data": [
     {
       "source": "rabota.md",
-      "count": 1250
+      "count": 1250,
+      "lastParse": "2024-01-05T10:00:00.000Z",
+      "isStale": false,
+      "status": "fresh"
     },
     {
       "source": "999.md",
-      "count": 890
+      "count": 890,
+      "lastParse": "2024-01-04T15:00:00.000Z",
+      "isStale": true,
+      "status": "stale"
     },
     {
       "source": "makler.md",
-      "count": 340
+      "count": 340,
+      "lastParse": null,
+      "isStale": true,
+      "status": "empty"
     }
   ]
 }
@@ -240,16 +302,106 @@ curl "http://localhost:3000/api/vacancies/stats"
 
 ---
 
+## 📄 Пагинация
+
+### Как работает пагинация
+
+Система использует **номера страниц** (`page`) вместо offset:
+
+```
+page=1, limit=10  →  вакансии 1-10
+page=2, limit=10  →  вакансии 11-20
+page=3, limit=10  →  вакансии 21-30
+```
+
+### Логика работы
+
+1. **Первый запрос**: Система собирает ВСЕ вакансии по запросу из БД
+2. **Кэширование**: Если указан `userId` - результаты кэшируются в Redis
+3. **Пагинация**: Из всего набора вырезается нужная страница
+4. **Следующие запросы**: Берутся из кэша (очень быстро)
+
+### Пример последовательной навигации
+
+```bash
+# Страница 1
+curl "http://localhost:3000/api/vacancies?keywords=developer&userId=bot_123&page=1&limit=10"
+# Ответ: вакансии 1-10, totalPages: 15
+
+# Страница 2 (из кэша)
+curl "http://localhost:3000/api/vacancies?keywords=developer&userId=bot_123&page=2&limit=10"
+# Ответ: вакансии 11-20, totalPages: 15
+
+# Последняя страница
+curl "http://localhost:3000/api/vacancies?keywords=developer&userId=bot_123&page=15&limit=10"
+# Ответ: последние вакансии
+```
+
+### Определение когда остановиться
+
+Используй `totalPages` из мета-информации:
+
+```javascript
+let currentPage = 1;
+let response;
+
+do {
+  response = await fetch(`/api/vacancies?page=${currentPage}&limit=10`);
+  const data = await response.json();
+  
+  // Обрабатываем вакансии
+  console.log(`Страница ${currentPage}/${data.meta.totalPages}`);
+  
+  currentPage++;
+  
+  // Остановка когда дошли до последней страницы
+} while (currentPage <= response.meta.totalPages);
+```
+
+### Для ботов
+
+```typescript
+async function getAllVacancies(filters: any) {
+  const allVacancies = [];
+  let currentPage = 1;
+  let totalPages = 1;
+  
+  do {
+    const { data } = await axios.get('/api/vacancies', {
+      params: {
+        ...filters,
+        userId: 'telegram_user_123', // Важно для кэширования!
+        page: currentPage,
+        limit: 10
+      }
+    });
+    
+    allVacancies.push(...data.data);
+    totalPages = data.meta.totalPages;
+    currentPage++;
+    
+    console.log(`📄 Загружено ${currentPage-1}/${totalPages} страниц`);
+    
+  } while (currentPage <= totalPages);
+  
+  return allVacancies;
+}
+```
+
+---
+
 ## 💻 Примеры использования
 
 ### JavaScript / Node.js
 
 ```javascript
-// С fetch
-const response = await fetch('http://localhost:3000/api/vacancies?keywords=nodejs&limit=5');
+// Простой поиск с пагинацией
+const response = await fetch('http://localhost:3000/api/vacancies?keywords=nodejs&page=1&limit=5');
 const data = await response.json();
 
-console.log(`Найдено: ${data.meta.total} вакансий`);
+console.log(`Найдено: ${data.meta.total} вакансий на ${data.meta.totalPages} страницах`);
+console.log(`Показана страница ${data.meta.currentPage}`);
+
 data.data.forEach(vacancy => {
   console.log(`- ${vacancy.title} at ${vacancy.company}`);
 });
@@ -261,9 +413,13 @@ const { data } = await axios.get('http://localhost:3000/api/vacancies', {
   params: {
     keywords: 'nodejs',
     salaryMin: 1000,
-    schedule: 'remote'
+    schedule: 'remote',
+    page: 2,
+    limit: 15
   }
 });
+
+console.log(`Страница ${data.meta.currentPage} из ${data.meta.totalPages}`);
 ```
 
 ### Python
@@ -274,27 +430,57 @@ import requests
 response = requests.get('http://localhost:3000/api/vacancies', params={
     'keywords': 'python',
     'locations': 'chisinau',
-    'salaryMin': 1000
+    'salaryMin': 1000,
+    'page': 1,
+    'limit': 10
 })
 
 data = response.json()
 print(f"Найдено: {data['meta']['total']} вакансий")
+print(f"Страница {data['meta']['currentPage']} из {data['meta']['totalPages']}")
 
 for vacancy in data['data']:
     print(f"- {vacancy['title']} at {vacancy['company']}")
+
+# Загрузить все страницы
+def fetch_all_pages(filters):
+    all_vacancies = []
+    current_page = 1
+    
+    while True:
+        response = requests.get('http://localhost:3000/api/vacancies', 
+            params={**filters, 'page': current_page})
+        data = response.json()
+        
+        all_vacancies.extend(data['data'])
+        
+        if current_page >= data['meta']['totalPages']:
+            break
+            
+        current_page += 1
+        print(f"Загружено {current_page}/{data['meta']['totalPages']} страниц")
+    
+    return all_vacancies
+
+vacancies = fetch_all_pages({'keywords': 'developer', 'limit': 20})
 ```
 
-### cURL с фильтрами
+### cURL с пагинацией
 
 ```bash
-# Сложный запрос
+# Первая страница
 curl -G "http://localhost:3000/api/vacancies" \
   --data-urlencode "keywords=javascript,react" \
   --data-urlencode "locations=chisinau" \
-  --data-urlencode "salaryMin=800" \
-  --data-urlencode "schedule=remote,hybrid" \
-  --data-urlencode "experience=between_1_and_3,between_3_and_6" \
-  --data-urlencode "limit=20"
+  --data-urlencode "page=1" \
+  --data-urlencode "limit=10"
+
+# Вторая страница
+curl -G "http://localhost:3000/api/vacancies" \
+  --data-urlencode "keywords=javascript,react" \
+  --data-urlencode "locations=chisinau" \
+  --data-urlencode "page=2" \
+  --data-urlencode "limit=10"
 ```
 
 ---
@@ -342,7 +528,7 @@ curl -G "http://localhost:3000/api/vacancies" \
 
 ## 🤖 Интеграция с ботом
 
-### Telegram Bot пример
+### Telegram Bot с пагинацией
 
 ```typescript
 import TelegramBot from 'node-telegram-bot-api';
@@ -351,16 +537,22 @@ import axios from 'axios';
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 const API_URL = 'http://localhost:3000';
 
+// Хранилище текущих страниц пользователей
+const userPages = new Map();
+
 bot.onText(/\/search (.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
+  const userId = `telegram_${chatId}`;
   const query = match[1]; // "nodejs remote"
   
   try {
-    // Поиск вакансий через API
+    // Первая страница
     const { data } = await axios.get(`${API_URL}/api/vacancies`, {
       params: {
         keywords: query,
-        limit: 10
+        userId: userId,  // Важно! Для кэширования
+        page: 1,
+        limit: 5
       }
     });
     
@@ -369,63 +561,152 @@ bot.onText(/\/search (.+)/, async (msg, match) => {
       return;
     }
     
-    // Форматируем результаты
-    let message = `🔍 Найдено ${data.meta.total} вакансий:\n\n`;
-    
-    data.data.forEach((vacancy, i) => {
-      message += `${i + 1}. ${vacancy.title}\n`;
-      message += `   💼 ${vacancy.company}\n`;
-      message += `   📍 ${vacancy.location || 'Не указана'}\n`;
-      if (vacancy.salaryMin) {
-        message += `   💰 $${vacancy.salaryMin}-${vacancy.salaryMax}\n`;
-      }
-      message += `   🔗 ${vacancy.sourceUrl}\n\n`;
+    // Сохраняем состояние
+    userPages.set(userId, {
+      query,
+      currentPage: 1,
+      totalPages: data.meta.totalPages
     });
     
-    bot.sendMessage(chatId, message);
+    // Форматируем результаты
+    const message = formatVacancies(data);
+    
+    // Кнопки навигации
+    const keyboard = {
+      inline_keyboard: [[
+        { text: '➡️ Следующая', callback_data: 'next_page' }
+      ]]
+    };
+    
+    bot.sendMessage(chatId, message, { 
+      reply_markup: data.meta.totalPages > 1 ? keyboard : undefined 
+    });
     
   } catch (error) {
     bot.sendMessage(chatId, '❌ Ошибка при поиске вакансий');
     console.error(error);
   }
 });
-```
 
-### Логика работы с API из бота
-
-```typescript
-async function searchVacancies(filters: {
-  keywords?: string[];
-  location?: string;
-  salaryMin?: number;
-  remote?: boolean;
-}) {
-  // 1. Формируем параметры
-  const params = {
-    keywords: filters.keywords?.join(','),
-    locations: filters.location,
-    salaryMin: filters.salaryMin,
-    schedule: filters.remote ? 'remote' : undefined
-  };
+// Обработка кнопок пагинации
+bot.on('callback_query', async (query) => {
+  const chatId = query.message.chat.id;
+  const userId = `telegram_${chatId}`;
+  const action = query.data;
   
-  // 2. Делаем запрос к API
-  const { data } = await axios.get(`${API_URL}/api/vacancies`, { params });
-  
-  // 3. Проверяем нужен ли парсинг
-  if (data.meta.updating) {
-    // API запустил парсинг в фоне
-    return {
-      vacancies: data.data,
-      updating: true,
-      message: '⏳ Данные обновляются, показываю что есть сейчас...'
-    };
+  const state = userPages.get(userId);
+  if (!state) {
+    bot.answerCallbackQuery(query.id, { text: 'Начните новый поиск' });
+    return;
   }
   
-  return {
-    vacancies: data.data,
-    updating: false
-  };
+  let newPage = state.currentPage;
+  
+  if (action === 'next_page' && state.currentPage < state.totalPages) {
+    newPage++;
+  } else if (action === 'prev_page' && state.currentPage > 1) {
+    newPage--;
+  }
+  
+  try {
+    const { data } = await axios.get(`${API_URL}/api/vacancies`, {
+      params: {
+        keywords: state.query,
+        userId: userId,
+        page: newPage,
+        limit: 5
+      }
+    });
+    
+    state.currentPage = newPage;
+    userPages.set(userId, state);
+    
+    const message = formatVacancies(data);
+    
+    // Кнопки навигации
+    const buttons = [];
+    if (newPage > 1) {
+      buttons.push({ text: '⬅️ Предыдущая', callback_data: 'prev_page' });
+    }
+    if (newPage < state.totalPages) {
+      buttons.push({ text: '➡️ Следующая', callback_data: 'next_page' });
+    }
+    
+    bot.editMessageText(message, {
+      chat_id: chatId,
+      message_id: query.message.message_id,
+      reply_markup: { inline_keyboard: [buttons] }
+    });
+    
+    bot.answerCallbackQuery(query.id);
+    
+  } catch (error) {
+    bot.answerCallbackQuery(query.id, { text: 'Ошибка загрузки' });
+  }
+});
+
+function formatVacancies(data: any): string {
+  let message = `🔍 Найдено ${data.meta.total} вакансий\n`;
+  message += `📄 Страница ${data.meta.currentPage}/${data.meta.totalPages}\n\n`;
+  
+  data.data.forEach((vacancy: any, i: number) => {
+    const num = (data.meta.currentPage - 1) * data.meta.limit + i + 1;
+    message += `${num}. ${vacancy.title}\n`;
+    message += `   💼 ${vacancy.company}\n`;
+    message += `   📍 ${vacancy.location || 'Не указана'}\n`;
+    if (vacancy.salaryMin) {
+      message += `   💰 $${vacancy.salaryMin}-${vacancy.salaryMax}\n`;
+    }
+    message += `   🔗 ${vacancy.sourceUrl}\n\n`;
+  });
+  
+  return message;
 }
+```
+
+### Простой бот без кнопок
+
+```typescript
+bot.onText(/\/search (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const userId = `telegram_${chatId}`;
+  const query = match[1];
+  
+  let currentPage = 1;
+  let totalPages = 1;
+  
+  do {
+    const { data } = await axios.get(`${API_URL}/api/vacancies`, {
+      params: {
+        keywords: query,
+        userId: userId,
+        page: currentPage,
+        limit: 10
+      }
+    });
+    
+    if (data.data.length === 0 && currentPage === 1) {
+      bot.sendMessage(chatId, '❌ Вакансии не найдены');
+      return;
+    }
+    
+    totalPages = data.meta.totalPages;
+    
+    // Отправляем вакансии текущей страницы
+    const message = formatVacancies(data);
+    await bot.sendMessage(chatId, message);
+    
+    currentPage++;
+    
+    // Задержка чтобы не спамить
+    if (currentPage <= totalPages) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+  } while (currentPage <= totalPages);
+  
+  bot.sendMessage(chatId, `✅ Показаны все ${totalPages} страниц`);
+});
 ```
 
 ---
@@ -479,8 +760,10 @@ API логирует все запросы в консоль (в development р�
 npm run dev:api
 
 # Вывод:
+🔍 Поиск вакансий: { keywords: ['nodejs'], page: 1, limit: 10 }
+📊 Найдено в БД: 150 вакансий
+📄 Страница 1/15, показываю 10 из 150 вакансий
 {"level":30,"time":1704456789,"msg":"GET /api/vacancies"}
-{"level":30,"time":1704456790,"msg":"Response: 200"}
 ```
 
 ### Health Check
@@ -496,6 +779,9 @@ GET http://localhost:3000/health
 
 ## 🎯 Roadmap API
 
+- [x] Пагинация по номеру страницы
+- [x] Кэширование результатов для быстрой навигации
+- [x] Семантический поиск
 - [ ] Эндпоинты для подписок:
   - `POST /api/subscriptions` - Создать подписку
   - `GET /api/subscriptions/:userId` - Подписки пользователя
@@ -512,4 +798,4 @@ GET http://localhost:3000/health
 📖 **Читай далее:**
 - [Документация по Worker](./WORKER.md)
 - [Интеграция с ботом](./BOT_INTEGRATION.md)
-- [Архитектура системы](./ARCHITECTURE.md)
+- [Архитектура системы](./architecture/OVERVIEW.md)

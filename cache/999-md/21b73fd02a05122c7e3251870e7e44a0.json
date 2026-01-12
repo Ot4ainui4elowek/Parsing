@@ -1,0 +1,16 @@
+{
+  "author": "Юридическое лицо",
+  "education": "Среднее профессиональное",
+  "experience": "От 1 года до 3 лет",
+  "schedule": "Гибкий",
+  "employmentType": "Полная занятость",
+  "contactPerson": "Daniela",
+  "company": "Pensiunea Turistica Odiseu",
+  "seasonal": false,
+  "languages": [
+    "Румынский",
+    "Русский"
+  ],
+  "region": "Кишинёв мун., Вадул-луй-Водэ",
+  "location": "Кишинёв мун., Вадул-луй-Водэ"
+}

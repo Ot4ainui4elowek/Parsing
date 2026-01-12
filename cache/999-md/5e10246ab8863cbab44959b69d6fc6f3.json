@@ -1,1 +1,14 @@
-{}
+{
+  "author": "Юридическое лицо",
+  "education": "Среднее",
+  "experience": "До 2-х лет",
+  "schedule": "Полный день",
+  "contactPerson": "Mihail",
+  "seasonal": false,
+  "languages": [
+    "Румынский",
+    "Русский"
+  ],
+  "region": "Кишинёв мун.",
+  "location": "Кишинёв мун."
+}

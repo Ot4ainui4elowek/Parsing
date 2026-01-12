@@ -1,1 +1,12 @@
-{}
+{
+  "author": "Юридическое лицо",
+  "education": "Среднее профессиональное",
+  "experience": "Нет опыта",
+  "schedule": "Полный день",
+  "employmentType": "Полная занятость",
+  "contactPerson": "Grigore",
+  "company": "Accesreal",
+  "seasonal": false,
+  "region": "Кишинёв мун., Кишинёв, Рышкановка",
+  "location": "Кишинёв мун., Кишинёв, Рышкановка"
+}

@@ -1,1 +1,8 @@
-{}
+{
+  "employmentType": "Постоянная",
+  "schedule": "Полный день",
+  "education": "Среднее",
+  "vacancyType": "Прямая",
+  "industry": "Прочее",
+  "specialization": "Прочее"
+}

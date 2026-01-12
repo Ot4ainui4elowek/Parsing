@@ -32,6 +32,7 @@
     "test:puppeteer": "node build/src/testPuppeteer.js",
     "dev:api": "tsx src/api/server.ts",
     "dev:worker": "tsx src/worker/worker.ts",
+    "dict:update": "tsx src/utils/dictionaries/index.ts",
     "test:system": "tsx test-system.ts",
     "test:managers": "tsx test-managers.ts",
     "start:api": "node build/src/api/server.js",

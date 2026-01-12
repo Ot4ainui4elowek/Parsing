@@ -1,1 +1,14 @@
-{}
+{
+  "education": "Не требуется или не указано",
+  "experience": "От 3 до 5 лет",
+  "schedule": "Полный день",
+  "employmentType": "Полная занятость",
+  "contactPerson": "ALEXANDRU",
+  "seasonal": false,
+  "languages": [
+    "Румынский",
+    "Русский"
+  ],
+  "region": "Кишинёв мун., Кишинёв, ул. Варница",
+  "location": "Кишинёв мун., Кишинёв, ул. Варница"
+}

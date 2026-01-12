@@ -1,1 +1,14 @@
-{}
+{
+  "author": "Юридическое лицо",
+  "education": "Среднее",
+  "experience": "Нет опыта",
+  "schedule": "Полный день",
+  "contactPerson": "Victor",
+  "seasonal": false,
+  "languages": [
+    "Румынский",
+    "Русский"
+  ],
+  "region": "Яловены, Сочитены, Окраина",
+  "location": "Яловены, Сочитены, Окраина"
+}

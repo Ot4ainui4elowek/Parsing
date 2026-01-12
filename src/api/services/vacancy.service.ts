@@ -56,7 +56,7 @@ export class VacancyService {
     sources?: string[];
     publishedAfter?: Date;
     limit?: number;
-    offset?: number;
+    page?: number;
   }): Promise<Vacancy[]> {
     const where: Prisma.VacancyWhereInput = {};
 
@@ -117,7 +117,7 @@ export class VacancyService {
       where,
       orderBy: { publishedAt: 'desc' },
       take: filters.limit || 50,
-      skip: filters.offset || 0,
+      skip: filters.page || 0,
     });
   }
 

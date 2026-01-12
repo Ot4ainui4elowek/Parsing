@@ -166,7 +166,14 @@ export class NineNineNineMdParser implements Parser {
             
             return { ...v, ...extra };
           } catch (err) {
-            log(`⚠️ Ошибка деталей для ${v.url}:`, err);
+            log(`⚠️ Ошибка деталей для ${v.url}:`, {
+            name: err?.name,
+            message: err?.message,
+            stack: err?.stack,
+            url: v.url,
+            vacancy: v,
+            error: err
+          });
             return v;
           }
         }),
@@ -240,54 +247,39 @@ export class NineNineNineMdParser implements Parser {
       // Дополнительная задержка для загрузки всех элементов
       await pause(500);
 
-      // Извлекаем данные
+      // Извлекаем данные БЕЗ функций внутри evaluate (чтобы избежать проблем с __name)
       const details = await page.evaluate(() => {
-        const result: Partial<Vacancy> = {};
+        const result: any = {};
 
-        // Функция для извлечения значения по ключу
-        const getFeatureValue = (key: string): string | undefined => {
-          const features = document.querySelectorAll('.styles_group__feature__5ZWJy');
-          for (const feature of features) {
-            const keyEl = feature.querySelector('.styles_group__key__uRhnQ');
-            const valueEl = feature.querySelector('.styles_group__value__XN7OI');
-            
-            if (keyEl?.textContent?.trim() === key && valueEl) {
-              return valueEl.textContent?.trim();
-            }
+        // Получаем все features
+        const features = document.querySelectorAll('.styles_group__feature__5ZWJy');
+        
+        // Создаем Map для быстрого поиска
+        const featureMap = new Map<string, string>();
+        features.forEach((feature) => {
+          const keyEl = feature.querySelector('.styles_group__key__uRhnQ');
+          const valueEl = feature.querySelector('.styles_group__value__XN7OI');
+          const key = keyEl?.textContent?.trim();
+          const value = valueEl?.textContent?.trim();
+          if (key && value) {
+            featureMap.set(key, value);
           }
-          return undefined;
-        };
+        });
 
-        // Автор
-        result.author = getFeatureValue('Автор');
-
-        // Образование
-        result.education = getFeatureValue('Образование');
-
-        // Стаж работы
-        result.experience = getFeatureValue('Стаж работы');
-
-        // Зарплата
-        result.salary = getFeatureValue('Зарплата');
-
-        // График работы
-        result.schedule = getFeatureValue('График работы');
-
+        // Извлекаем значения
+        result.author = featureMap.get('Автор');
+        result.education = featureMap.get('Образование');
+        result.experience = featureMap.get('Стаж работы');
+        result.salary = featureMap.get('Зарплата');
+        result.schedule = featureMap.get('График работы');
+        result.employmentType = featureMap.get('Тип занятости');
+        result.companyType = featureMap.get('Тип компании');
+        result.contactPerson = featureMap.get('Контактное лицо');
+        result.company = featureMap.get('Название компании');
+        
         // Сезонная работа
-        const seasonalText = getFeatureValue('Сезонная работа');
+        const seasonalText = featureMap.get('Сезонная работа');
         result.seasonal = seasonalText === 'Да';
-
-        // Тип занятости
-        result.employmentType = getFeatureValue('Тип занятости');
-
-        // Тип компании
-        result.companyType = getFeatureValue('Тип компании');
-
-        // Контактное лицо
-        result.contactPerson = getFeatureValue('Контактное лицо');
-
-        // Название компании
-        result.company = getFeatureValue('Название компании');
 
         // Языки
         const languagesGroup = Array.from(document.querySelectorAll('.styles_group__aota8')).find(
@@ -298,7 +290,7 @@ export class NineNineNineMdParser implements Parser {
           const langFeatures = languagesGroup.querySelectorAll('.styles_group__feature__5ZWJy');
           result.languages = Array.from(langFeatures)
             .map((f) => f.querySelector('.styles_group__key__uRhnQ')?.textContent?.trim())
-            .filter((l): l is string => !!l);
+            .filter((l) => !!l);
         }
 
         // Регион/адрес
@@ -319,7 +311,13 @@ export class NineNineNineMdParser implements Parser {
 
       return details;
     } catch (error) {
-      log(`❌ Ошибка при парсинге деталей ${url}:`, error);
+      log(`❌ Ошибка при парсинге деталей ${url}:`, {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack,
+      url,
+      error
+    });
       return {};
     } finally {
       await page.close();

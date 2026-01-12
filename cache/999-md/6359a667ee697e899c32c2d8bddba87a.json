@@ -1,1 +1,13 @@
-{}
+{
+  "education": "Не требуется или не указано",
+  "experience": "От 1 года до 3 лет",
+  "schedule": "Полный день",
+  "employmentType": "Полная занятость",
+  "contactPerson": "автосервис",
+  "seasonal": false,
+  "languages": [
+    "Русский"
+  ],
+  "region": "Кишинёв мун., Бачой",
+  "location": "Кишинёв мун., Бачой"
+}

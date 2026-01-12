@@ -1,0 +1,15 @@
+{
+  "author": "Физическое лицо",
+  "education": "Среднее профессиональное",
+  "experience": "От 1 года до 3 лет",
+  "schedule": "Сменный график",
+  "employmentType": "Полная занятость",
+  "contactPerson": "Evgheni",
+  "seasonal": false,
+  "languages": [
+    "Румынский",
+    "Русский"
+  ],
+  "region": "Кишинёв мун., Кишинёв, Центр",
+  "location": "Кишинёв мун., Кишинёв, Центр"
+}
